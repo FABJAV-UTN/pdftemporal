@@ -4,7 +4,8 @@ test_document_controller.py — Tests unitarios para document_controller.py
 Estos tests verifican que el Controller:
   1. Llama al Service con los datos correctos.
   2. Devuelve la respuesta correcta cuando el Service tiene éxito.
-  3. Lanza HTTPException apropiada cuando el Service no encuentra un recurso.
+  3. Propaga el error de dominio cuando el use case no encuentra un recurso
+     (la traducción a 404 la hace app/presentation/error_handlers.py).
 
 Se usa unittest.mock para reemplazar el Service con un mock, de modo que estos tests solo prueban la lógica del Controller, no del Service.
 """
@@ -13,7 +14,6 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-from fastapi import HTTPException
 
 from app.business.entities.document import Document
 from app.business.domain.exceptions import DocumentNotFoundError
@@ -164,14 +164,11 @@ class TestGetDocumentById:
 
     @pytest.mark.asyncio
     async def test_raises_404_when_not_found(self, controller, mock_service):
-        """Si el service lanza DocumentNotFoundError, el controller debe lanzar HTTPException 404."""
+        """Si el service lanza DocumentNotFoundError, el controller lo propaga."""
         mock_service["get"].execute = AsyncMock(side_effect=DocumentNotFoundError("id_inexistente"))
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(DocumentNotFoundError, match="id_inexistente"):
             await controller.get_document_by_id("id_inexistente")
-
-        assert exc_info.value.status_code == 404
-        assert "id_inexistente" in exc_info.value.detail
 
 
 # ------------------------------------------------------------------ #
@@ -187,19 +184,17 @@ class TestUpdateDocument:
 
         result = await controller.update_document("abc123", dto)
 
-        mock_service["update"].execute.assert_called_once_with("abc123", {"custom_name": "Nuevo nombre"})
+        mock_service["update"].execute.assert_called_once_with("abc123", {"filename": "Nuevo nombre"})
         assert result == sample_response
 
     @pytest.mark.asyncio
     async def test_raises_404_when_document_not_found(self, controller, mock_service):
-        """Si el service lanza DocumentNotFoundError en update, el controller lanza 404."""
+        """Si el service lanza DocumentNotFoundError en update, el controller lo propaga."""
         mock_service["update"].execute = AsyncMock(side_effect=DocumentNotFoundError("id_inexistente"))
         dto = UpdateRequestDTO(custom_name="Nuevo nombre")
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(DocumentNotFoundError):
             await controller.update_document("id_inexistente", dto)
-
-        assert exc_info.value.status_code == 404
 
 
 # ------------------------------------------------------------------ #
@@ -218,10 +213,8 @@ class TestDeleteDocument:
 
     @pytest.mark.asyncio
     async def test_raises_404_when_document_not_found(self, controller, mock_service):
-        """Si el service lanza DocumentNotFoundError, el controller lanza 404."""
+        """Si el service lanza DocumentNotFoundError, el controller lo propaga."""
         mock_service["delete"].execute = AsyncMock(side_effect=DocumentNotFoundError("id_inexistente"))
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(DocumentNotFoundError):
             await controller.delete_document("id_inexistente")
-
-        assert exc_info.value.status_code == 404

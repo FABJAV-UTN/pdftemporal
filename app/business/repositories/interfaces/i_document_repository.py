@@ -18,6 +18,9 @@ class IDocumentRepository(ABC):
 
         Returns:
             La misma entidad con el campo `id` poblado por la DB.
+
+        Raises:
+            DuplicateDocumentError: si ya existe un documento con el mismo checksum.
         """
         ...
     @abstractmethod

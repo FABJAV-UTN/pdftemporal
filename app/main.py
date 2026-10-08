@@ -1,45 +1,37 @@
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from beanie import init_beanie
 from contextlib import asynccontextmanager
 
-from app.business.domain.exceptions import DocumentNotFoundError, DuplicatePDFError, InvalidFileError, ProblemDetailError
+from beanie import init_beanie
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from starlette.formparsers import MultiPartParser
+
+from app.config.settings import settings
 from app.data.database.mongo_connection import connect, disconnect, get_database
 from app.data.models.document_model import DocumentModel
+from app.presentation.error_handlers import register_error_handlers
+from app.presentation.middlewares.body_size_limit import BodySizeLimitMiddleware
 from app.presentation.routers.document_router import router as document_router
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
     await connect()
     await init_beanie(database=get_database(), document_models=[DocumentModel])
     yield
-    # Shutdown
     await disconnect()
 
 
+# Margen para los bytes del multipart que no son el PDF (boundaries, headers, custom_name).
+MULTIPART_OVERHEAD_BYTES = 64 * 1024
+MAX_REQUEST_BYTES = settings.max_pdf_size_bytes + MULTIPART_OVERHEAD_BYTES
+
+# Consigna Etapa 1: el PDF no se persiste temporalmente. Starlette pasa los uploads a
+# disco cuando superan spool_max_size (1 MB por defecto); lo subimos al tamaño máximo
+# de request, y BodySizeLimitMiddleware rechaza todo lo que lo supere.
+MultiPartParser.spool_max_size = MAX_REQUEST_BYTES
+
 app = FastAPI(lifespan=lifespan)
-
-
-def build_problem_detail(status_code: int, title: str, detail: str) -> dict[str, object]:
-    return {
-        "type": "about:blank",
-        "title": title,
-        "status": status_code,
-        "detail": detail,
-    }
-
-
-@app.exception_handler(ProblemDetailError)
-async def problem_detail_handler(request: Request, exc: ProblemDetailError) -> JSONResponse:
-    body = build_problem_detail(exc.status_code, exc.title, exc.detail)
-    # RFC 9457 requires an "instance" member identifying the specific occurrence.
-    body["instance"] = str(request.url)
-    # If the exception exposes a specific type, use it.
-    if getattr(exc, "type", None):
-        body["type"] = exc.type
-    return JSONResponse(status_code=exc.status_code, content=body)
+app.add_middleware(BodySizeLimitMiddleware, max_bytes=MAX_REQUEST_BYTES)
 
 app.add_middleware(
     CORSMiddleware,
@@ -48,7 +40,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-
-# Registrar el router de documentos
+register_error_handlers(app)
 app.include_router(document_router)

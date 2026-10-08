@@ -55,10 +55,15 @@ class DocumentController:
 
     async def update_document(self, document_id: str, dto: UpdateRequestDTO) -> DocumentResponseDTO:
         try:
-            document = await self._update_document.execute(document_id, dto.model_dump(exclude_none=True))
+            document = await self._update_document.execute(document_id, self._to_domain_fields(dto))
         except DocumentNotFoundError as exc:
             raise exc
         return DocumentResponseDTO.from_entity(document)
+
+    @staticmethod
+    def _to_domain_fields(dto: UpdateRequestDTO) -> dict[str, str]:
+        """Traduce el contrato HTTP (custom_name) al nombre del campo de dominio (filename)."""
+        return {"filename": dto.custom_name} if dto.custom_name is not None else {}
 
     async def delete_document(self, document_id: str) -> dict[str, str]:
         try:

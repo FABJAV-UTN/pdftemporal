@@ -12,6 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from app.business.domain.exceptions import InvalidPDFError
 from app.business.domain.text_extractor import extract_text
 
 
@@ -62,15 +63,14 @@ class TestExtractText:
 
         assert result == ""
 
-    def test_returns_empty_string_on_extraction_error(self):
-        """Si pdfplumber falla internamente, debe retornar '' en lugar de propagar la excepción."""
+    def test_raises_invalid_pdf_when_content_cannot_be_parsed(self):
+        """Si pdfplumber no puede abrir el archivo, es un PDF inválido: no debe guardarse con texto vacío."""
         with patch(
             "app.business.domain.text_extractor.pdfplumber.open",
             side_effect=Exception("Corrupt PDF"),
         ):
-            result = extract_text(b"corrupt-bytes")
-
-        assert result == ""
+            with pytest.raises(InvalidPDFError):
+                extract_text(b"corrupt-bytes")
 
     def test_returns_string_type(self):
         """El resultado siempre debe ser un string, nunca None."""

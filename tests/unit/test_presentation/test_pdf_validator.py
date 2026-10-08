@@ -17,13 +17,13 @@ Guía de testing (del profesor):
 import io
 import pytest
 from unittest.mock import AsyncMock, MagicMock
-from fastapi import HTTPException
 
 from app.presentation.validators.pdf_validator import (
     PDF_MAGIC_BYTES,
     validate_pdf,
 )
 from app.config.settings import settings
+from app.business.domain.exceptions import InvalidPDFError, PDFTooLargeError
 
 
 # ------------------------------------------------------------------ #
@@ -76,31 +76,26 @@ class TestPdfValidator:
     @pytest.mark.asyncio
     async def test_non_pdf_file_raises_400(self):
         """
-        Un archivo que NO empieza con %PDF debe lanzar HTTPException 400.
+        Un archivo que NO empieza con %PDF debe lanzar InvalidPDFError (el cliente recibe 400).
         Simula un usuario que sube un .docx renombrado como .pdf.
         """
         fake_docx_content = b"PK\x03\x04 not a pdf"
         file_mock = make_upload_file_mock(fake_docx_content)
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(InvalidPDFError, match="no es un PDF válido"):
             await validate_pdf(file_mock)
-
-        assert exc_info.value.status_code == 400
-        assert "no es un PDF válido" in exc_info.value.detail
 
     @pytest.mark.asyncio
     async def test_file_exceeding_max_size_raises_413(self):
         """
-        Un archivo PDF real pero demasiado grande debe lanzar HTTPException 413 (Request Entity Too Large).
+        Un archivo PDF real pero demasiado grande debe lanzar PDFTooLargeError (el cliente recibe 413).
         """
         # Creamos contenido que supera el límite por 1 byte.
         oversized_content = PDF_MAGIC_BYTES + b"x" * (settings.MAX_PDF_SIZE_BYTES + 1)
         file_mock = make_upload_file_mock(oversized_content)
 
-        with pytest.raises(HTTPException) as exc_info:
+        with pytest.raises(PDFTooLargeError):
             await validate_pdf(file_mock)
-
-        assert exc_info.value.status_code == 413
 
     @pytest.mark.asyncio
     async def test_file_at_exact_max_size_passes(self):

@@ -19,7 +19,7 @@ Principios aplicados:
 
 from fastapi import UploadFile
 
-from app.business.domain.exceptions import InvalidFileError
+from app.business.domain.exceptions import InvalidPDFError, PDFTooLargeError
 from app.config.settings import settings
 
 # Los primeros 4 bytes de todo archivo PDF válido (firma del formato).
@@ -40,14 +40,14 @@ async def validate_pdf(file: UploadFile) -> None:
         file: El archivo subido por el cliente (FastAPI UploadFile).
 
     Raises:
-        HTTPException 400: Si el archivo no es un PDF válido.
-        HTTPException 413: Si el archivo supera el tamaño máximo.
+        InvalidPDFError: si el archivo no es un PDF válido (400).
+        PDFTooLargeError: si el archivo supera el tamaño máximo (413).
     """
     # — Paso 1: verificar magic bytes —
     # Leemos solo 4 bytes; es suficiente para confirmar la firma PDF.
     header = await file.read(4)
     if header != PDF_MAGIC_BYTES:
-        raise InvalidFileError("El archivo no es un PDF válido.", status_code=400)
+        raise InvalidPDFError()
 
     # — Paso 2: calcular tamaño total sin leer contenido —
     # FastAPI UploadFile.seek() solo acepta offset, no whence.
@@ -69,7 +69,4 @@ async def validate_pdf(file: UploadFile) -> None:
     await file.seek(0)
 
     if total_size > settings.max_pdf_size_bytes:
-        raise InvalidFileError(
-            f"El archivo supera el tamaño máximo de {settings.max_pdf_size_mb} MB.",
-            status_code=413,
-        )
+        raise PDFTooLargeError(settings.max_pdf_size_mb)

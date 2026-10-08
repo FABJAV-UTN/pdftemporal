@@ -1,42 +1,41 @@
-"""Excepciones de negocio para los documentos."""
+"""Errores de negocio de los documentos.
 
-from fastapi import HTTPException
-
-
-class ProblemDetailError(HTTPException):
-    """Excepción HTTP compatible con Problem Details (RFC 9457)."""
-
-    def __init__(self, status_code: int, title: str, detail: str, type_: str = "about:blank") -> None:
-        super().__init__(status_code=status_code, detail=detail)
-        self.title = title
-        self.type = type_
+Describen qué regla se violó, no cómo se informa al cliente: no conocen
+HTTP ni FastAPI. La traducción a respuestas HTTP (RFC 9457) vive en
+app/presentation/error_handlers.py.
+"""
 
 
-class DocumentNotFoundError(ProblemDetailError):
-    """Se lanza cuando se busca un documento que no existe en el sistema."""
+class DomainError(Exception):
+    """Base de todos los errores de negocio."""
+
+
+class DocumentNotFoundError(DomainError):
+    """No existe un documento con el id buscado."""
 
     def __init__(self, document_id: str) -> None:
-        super().__init__(status_code=404, title="Not Found", detail=f"Document '{document_id}' not found.")
+        super().__init__(f"Document '{document_id}' not found.")
         self.document_id = document_id
 
 
-class DuplicatePDFError(ProblemDetailError):
-    """Se lanza cuando se intenta guardar un PDF ya existente (mismo checksum)."""
+class DuplicateDocumentError(DomainError):
+    """Ya existe un documento con el mismo checksum."""
 
     def __init__(self, checksum: str) -> None:
-        super().__init__(status_code=409, title="Conflict", detail=f"A document with checksum '{checksum}' already exists.")
+        super().__init__(f"A document with checksum '{checksum}' already exists.")
         self.checksum = checksum
 
 
-class DuplicateDocumentError(DuplicatePDFError):
-    """Alias de compatibilidad para el flujo actual del servicio."""
+class InvalidPDFError(DomainError):
+    """El archivo no es un PDF o su contenido no se puede leer."""
 
-    pass
+    def __init__(self, detail: str = "El archivo no es un PDF válido.") -> None:
+        super().__init__(detail)
 
 
-class InvalidFileError(ProblemDetailError):
-    """Se lanza cuando el archivo enviado no es un PDF válido o supera el límite."""
+class PDFTooLargeError(DomainError):
+    """El archivo supera el tamaño máximo permitido."""
 
-    def __init__(self, detail: str, status_code: int = 400) -> None:
-        title = "Bad Request" if status_code == 400 else "Payload Too Large"
-        super().__init__(status_code=status_code, title=title, detail=detail)
+    def __init__(self, max_size_mb: int) -> None:
+        super().__init__(f"El archivo supera el tamaño máximo de {max_size_mb} MB.")
+        self.max_size_mb = max_size_mb

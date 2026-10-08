@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from beanie import PydanticObjectId
 from pymongo.errors import DuplicateKeyError
 
+from app.business.domain.exceptions import DuplicateDocumentError
 from app.business.entities.document import Document
 from app.business.repositories.interfaces.i_document_repository import IDocumentRepository
 from app.data.models.document_model import DocumentModel
@@ -60,7 +61,8 @@ class MongoDocumentRepository(IDocumentRepository):
              para que el servicio reciba el id generado.
 
         Raises:
-            ValueError: si ya existe un documento con el mismo checksum (duplicado).
+            DuplicateDocumentError: si ya existe un documento con el mismo checksum
+                (puede pasar si dos uploads iguales llegan al mismo tiempo).
         """
         model = DocumentModel.from_entity(document)
 
@@ -69,7 +71,7 @@ class MongoDocumentRepository(IDocumentRepository):
         except DuplicateKeyError:
             # El índice único de 'checksum' rechaza duplicados
             logger.warning("Intento de guardar documento duplicado: checksum=%s", document.checksum)
-            raise ValueError(f"Ya existe un documento con checksum {document.checksum}")
+            raise DuplicateDocumentError(document.checksum)
 
         logger.info("Documento guardado con id=%s", model.id)
         return model.to_entity()

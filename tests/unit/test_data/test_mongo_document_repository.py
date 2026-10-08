@@ -79,9 +79,11 @@ class TestSave:
         """
         Dado: un documento cuyo checksum ya existe en BD
         Cuando: llamamos a save()
-        Entonces: lanza ValueError con mensaje descriptivo
+        Entonces: lanza DuplicateDocumentError (el mismo error que la validación previa),
+                  así el cliente recibe 409 y no un 500
         """
         from pymongo.errors import DuplicateKeyError
+        from app.business.domain.exceptions import DuplicateDocumentError
         from app.data.repositories.mongo_document_repository import MongoDocumentRepository
 
         entity = make_mock_document(checksum="checksum_existente")
@@ -92,7 +94,7 @@ class TestSave:
             MockModel.from_entity.return_value = model
 
             repo = MongoDocumentRepository()
-            with pytest.raises(ValueError, match="checksum"):
+            with pytest.raises(DuplicateDocumentError, match="checksum_existente"):
                 await repo.save(entity)
 
 

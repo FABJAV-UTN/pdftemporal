@@ -266,7 +266,7 @@ Hay tests unitarios por capa y tests de integración para el flujo completo.
 Levanta un entorno aislado con su propia base de datos de test y ejecuta toda la suite:
 
 ```bash
-docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
+docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from tests
 ```
 
 ### Sin Docker
@@ -275,15 +275,15 @@ Los **tests unitarios** no dependen de ningún servicio externo y pueden corrers
 
 ```bash
 # Tests unitarios (no requieren MongoDB)
-PYTHONPATH=. uv run pytest tests/unit/ -v
+uv run pytest tests/unit/ -v
 
 # Por capa específica
-PYTHONPATH=. uv run pytest tests/unit/test_presentation/
-PYTHONPATH=. uv run pytest tests/unit/test_business/
-PYTHONPATH=. uv run pytest tests/unit/test_data/
+uv run pytest tests/unit/test_presentation/
+uv run pytest tests/unit/test_business/
+uv run pytest tests/unit/test_data/
 
 # Con cobertura
-PYTHONPATH=. uv run pytest tests/unit/ --cov=app --cov-report=term-missing
+uv run pytest tests/unit/ --cov=app --cov-report=term-missing
 ```
 
 > ⚠️ Los **tests de integración** requieren MongoDB corriendo. Si querés ejecutarlos
