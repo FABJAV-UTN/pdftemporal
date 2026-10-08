@@ -1,0 +1,4 @@
+Paso: 2-verde
+Borrar estos archivos del repo (git rm):
+  app/business/domain/text_extractor.py
+  tests/unit/test_business/test_text_extratext.py

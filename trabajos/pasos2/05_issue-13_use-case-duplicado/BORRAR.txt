@@ -1,0 +1,3 @@
+Paso: archivos
+Borrar estos archivos del repo (git rm):
+  app/use_cases/download_text.py

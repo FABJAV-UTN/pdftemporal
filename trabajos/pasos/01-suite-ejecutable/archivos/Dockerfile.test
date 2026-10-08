@@ -1,0 +1,13 @@
+FROM ghcr.io/astral-sh/uv:python3.12-bookworm-slim
+
+WORKDIR /app
+
+# Dependencias (incluye el grupo dev: pytest, httpx, etc.) fijadas por uv.lock.
+COPY pyproject.toml uv.lock ./
+RUN uv sync --frozen --group dev
+
+# Código y tests
+COPY app/ ./app/
+COPY tests/ ./tests/
+
+CMD ["uv", "run", "pytest", "-v"]

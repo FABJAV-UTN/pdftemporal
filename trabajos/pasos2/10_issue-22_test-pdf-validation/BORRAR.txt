@@ -1,0 +1,3 @@
+Paso: archivos
+Borrar estos archivos del repo (git rm):
+  tests/integration/pdf_validation.py
